@@ -1,0 +1,1225 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DrinkStock — Controle de Estoque</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #111118;
+    --surface2: #1a1a24;
+    --border: #2a2a3a;
+    --accent: #ff6b35;
+    --accent2: #ffcc02;
+    --green: #39d98a;
+    --red: #ff4d6d;
+    --yellow: #ffd166;
+    --blue: #4cc9f0;
+    --text: #f0f0f8;
+    --muted: #8888a0;
+    --font-display: 'Bebas Neue', sans-serif;
+    --font-body: 'DM Sans', sans-serif;
+    --font-mono: 'DM Mono', monospace;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-body);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* NOISE TEXTURE */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 9999;
+    opacity: 0.4;
+  }
+
+  /* SIDEBAR */
+  .sidebar {
+    position: fixed;
+    left: 0; top: 0; bottom: 0;
+    width: 220px;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    padding: 24px 0;
+    z-index: 100;
+  }
+
+  .logo {
+    padding: 0 20px 28px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .logo-title {
+    font-family: var(--font-display);
+    font-size: 32px;
+    letter-spacing: 2px;
+    color: var(--accent);
+    line-height: 1;
+  }
+
+  .logo-sub {
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    margin-top: 4px;
+  }
+
+  .nav {
+    padding: 20px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1;
+  }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--muted);
+    transition: all .2s;
+    border: 1px solid transparent;
+  }
+
+  .nav-item:hover { background: var(--surface2); color: var(--text); }
+  .nav-item.active {
+    background: rgba(255,107,53,.12);
+    color: var(--accent);
+    border-color: rgba(255,107,53,.3);
+  }
+
+  .nav-icon { font-size: 18px; width: 22px; text-align: center; }
+
+  .sidebar-footer {
+    padding: 16px 20px;
+    border-top: 1px solid var(--border);
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  /* MAIN */
+  .main {
+    margin-left: 220px;
+    min-height: 100vh;
+    padding: 32px 36px;
+  }
+
+  /* HEADER */
+  .page-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 32px;
+  }
+
+  .page-title {
+    font-family: var(--font-display);
+    font-size: 42px;
+    letter-spacing: 2px;
+    color: var(--text);
+    line-height: 1;
+  }
+
+  .page-title span { color: var(--accent); }
+
+  .header-actions { display: flex; gap: 10px; }
+
+  .btn {
+    padding: 10px 20px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    font-family: var(--font-body);
+    font-size: 13px;
+    font-weight: 600;
+    transition: all .2s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .btn-primary {
+    background: var(--accent);
+    color: #fff;
+  }
+  .btn-primary:hover { background: #ff8555; transform: translateY(-1px); }
+
+  .btn-secondary {
+    background: var(--surface2);
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+  .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* CARDS */
+  .cards-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 32px;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    position: relative;
+    overflow: hidden;
+    transition: border-color .2s;
+  }
+
+  .card:hover { border-color: var(--accent); }
+
+  .card::after {
+    content: '';
+    position: absolute;
+    top: 0; right: 0;
+    width: 60px; height: 60px;
+    border-radius: 0 0 0 60px;
+    opacity: .08;
+  }
+
+  .card.orange::after { background: var(--accent); }
+  .card.yellow::after { background: var(--accent2); }
+  .card.green::after { background: var(--green); }
+  .card.red::after { background: var(--red); }
+
+  .card-label {
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-bottom: 10px;
+  }
+
+  .card-value {
+    font-family: var(--font-display);
+    font-size: 44px;
+    letter-spacing: 1px;
+    line-height: 1;
+  }
+
+  .card.orange .card-value { color: var(--accent); }
+  .card.yellow .card-value { color: var(--accent2); }
+  .card.green .card-value { color: var(--green); }
+  .card.red .card-value { color: var(--red); }
+
+  .card-sub {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 6px;
+  }
+
+  /* SECTION */
+  .section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 24px;
+  }
+
+  .section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+  }
+
+  .section-title {
+    font-family: var(--font-display);
+    font-size: 20px;
+    letter-spacing: 1px;
+  }
+
+  /* FILTERS */
+  .filters {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .filter-input {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 14px;
+    color: var(--text);
+    font-family: var(--font-body);
+    font-size: 13px;
+    outline: none;
+    transition: border-color .2s;
+  }
+
+  .filter-input:focus { border-color: var(--accent); }
+  .filter-input::placeholder { color: var(--muted); }
+
+  .filter-select {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 14px;
+    color: var(--text);
+    font-family: var(--font-body);
+    font-size: 13px;
+    outline: none;
+    cursor: pointer;
+  }
+
+  /* TABLE */
+  .table-wrap { overflow-x: auto; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  thead tr {
+    border-bottom: 1px solid var(--border);
+  }
+
+  th {
+    text-align: left;
+    padding: 10px 14px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+  }
+
+  td {
+    padding: 13px 14px;
+    font-size: 13px;
+    border-bottom: 1px solid rgba(42,42,58,.5);
+    vertical-align: middle;
+  }
+
+  tr:last-child td { border-bottom: none; }
+
+  tbody tr {
+    transition: background .15s;
+    cursor: pointer;
+  }
+
+  tbody tr:hover { background: rgba(255,107,53,.04); }
+
+  .prod-name {
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .prod-sku {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .5px;
+  }
+
+  .badge-ok { background: rgba(57,217,138,.15); color: var(--green); }
+  .badge-low { background: rgba(255,209,102,.15); color: var(--yellow); }
+  .badge-out { background: rgba(255,77,109,.15); color: var(--red); }
+  .badge-cat { background: rgba(76,201,240,.1); color: var(--blue); font-size: 10px; padding: 2px 8px; }
+
+  .qty-val {
+    font-family: var(--font-mono);
+    font-weight: 500;
+    font-size: 14px;
+  }
+
+  .price-val {
+    font-family: var(--font-mono);
+    color: var(--green);
+    font-size: 13px;
+  }
+
+  .action-btns { display: flex; gap: 6px; }
+
+  .icon-btn {
+    width: 30px; height: 30px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    transition: all .15s;
+    color: var(--muted);
+  }
+
+  .icon-btn:hover { border-color: var(--accent); color: var(--accent); background: rgba(255,107,53,.1); }
+  .icon-btn.del:hover { border-color: var(--red); color: var(--red); background: rgba(255,77,109,.1); }
+
+  /* MODAL */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(10,10,15,.85);
+    backdrop-filter: blur(4px);
+    z-index: 500;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .2s;
+  }
+
+  .modal-overlay.open { opacity: 1; pointer-events: all; }
+
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    width: 540px;
+    max-width: 95vw;
+    padding: 28px;
+    transform: translateY(20px) scale(.97);
+    transition: transform .25s;
+  }
+
+  .modal-overlay.open .modal { transform: translateY(0) scale(1); }
+
+  .modal-title {
+    font-family: var(--font-display);
+    font-size: 26px;
+    letter-spacing: 1px;
+    margin-bottom: 22px;
+  }
+
+  .modal-title span { color: var(--accent); }
+
+  .form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin-bottom: 20px;
+  }
+
+  .form-group { display: flex; flex-direction: column; gap: 6px; }
+  .form-group.full { grid-column: 1 / -1; }
+
+  .form-label {
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    font-weight: 600;
+  }
+
+  .form-control {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    color: var(--text);
+    font-family: var(--font-body);
+    font-size: 13px;
+    outline: none;
+    transition: border-color .2s;
+    width: 100%;
+  }
+
+  .form-control:focus { border-color: var(--accent); }
+  .form-control::placeholder { color: var(--muted); }
+
+  .modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
+
+  /* TOAST */
+  .toast {
+    position: fixed;
+    bottom: 28px;
+    right: 28px;
+    background: var(--surface);
+    border: 1px solid var(--green);
+    color: var(--green);
+    padding: 12px 20px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 600;
+    z-index: 1000;
+    transform: translateY(60px);
+    opacity: 0;
+    transition: all .3s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .toast.show { transform: translateY(0); opacity: 1; }
+  .toast.err { border-color: var(--red); color: var(--red); }
+
+  /* LOW STOCK ALERT */
+  .alert-bar {
+    background: rgba(255,209,102,.08);
+    border: 1px solid rgba(255,209,102,.25);
+    border-radius: 10px;
+    padding: 12px 18px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 24px;
+    font-size: 13px;
+    color: var(--yellow);
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { border-color: rgba(255,209,102,.25); }
+    50% { border-color: rgba(255,209,102,.5); }
+  }
+
+  /* MOVIMENTAÇÃO */
+  .mov-list { display: flex; flex-direction: column; gap: 8px; }
+
+  .mov-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 14px;
+    background: var(--surface2);
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    font-size: 13px;
+    transition: border-color .15s;
+  }
+
+  .mov-item:hover { border-color: var(--border); }
+
+  .mov-info { display: flex; flex-direction: column; gap: 2px; }
+  .mov-prod { font-weight: 600; }
+  .mov-meta { font-size: 11px; color: var(--muted); font-family: var(--font-mono); }
+  .mov-qty-pos { font-family: var(--font-mono); font-weight: 600; color: var(--green); }
+  .mov-qty-neg { font-family: var(--font-mono); font-weight: 600; color: var(--red); }
+
+  /* TABS */
+  .tabs { display: flex; gap: 4px; padding: 4px; background: var(--surface2); border-radius: 10px; width: fit-content; }
+
+  .tab {
+    padding: 8px 18px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--muted);
+    transition: all .2s;
+    border: none;
+    background: none;
+    font-family: var(--font-body);
+  }
+
+  .tab.active { background: var(--surface); color: var(--text); }
+
+  /* PAGE VISIBILITY */
+  .page { display: none; }
+  .page.active { display: block; }
+
+  /* PROGRESS BAR */
+  .stock-bar {
+    width: 80px;
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .stock-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width .3s;
+  }
+
+  /* RESPONSIVE */
+  @media (max-width: 900px) {
+    .sidebar { width: 60px; }
+    .logo-title, .logo-sub, .nav-item span { display: none; }
+    .nav-item { justify-content: center; padding: 10px; }
+    .main { margin-left: 60px; padding: 20px 16px; }
+    .cards-grid { grid-template-columns: 1fr 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<nav class="sidebar">
+  <div class="logo">
+    <div class="logo-title">DRINK<br>STOCK</div>
+    <div class="logo-sub">Controle de Estoque</div>
+  </div>
+  <div class="nav">
+    <div class="nav-item active" onclick="showPage('dashboard')">
+      <span class="nav-icon">📊</span>
+      <span>Dashboard</span>
+    </div>
+    <div class="nav-item" onclick="showPage('estoque')">
+      <span class="nav-icon">📦</span>
+      <span>Estoque</span>
+    </div>
+    <div class="nav-item" onclick="showPage('movimentacao')">
+      <span class="nav-icon">🔄</span>
+      <span>Movimentação</span>
+    </div>
+    <div class="nav-item" onclick="showPage('relatorio')">
+      <span class="nav-icon">📋</span>
+      <span>Relatório</span>
+    </div>
+  </div>
+  <div class="sidebar-footer">v1.0 · DrinkStock</div>
+</nav>
+
+<!-- MAIN -->
+<main class="main">
+
+  <!-- DASHBOARD -->
+  <div id="page-dashboard" class="page active">
+    <div class="page-header">
+      <div>
+        <div class="page-title">DASH<span>BOARD</span></div>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px;" id="dash-date"></div>
+      </div>
+      <div class="header-actions">
+        <button class="btn btn-primary" onclick="openModal()">＋ Novo Produto</button>
+      </div>
+    </div>
+
+    <div class="cards-grid">
+      <div class="card orange">
+        <div class="card-label">Total de Produtos</div>
+        <div class="card-value" id="total-produtos">—</div>
+        <div class="card-sub">cadastrados no sistema</div>
+      </div>
+      <div class="card yellow">
+        <div class="card-label">Estoque Baixo</div>
+        <div class="card-value" id="total-baixo">—</div>
+        <div class="card-sub">abaixo do mínimo</div>
+      </div>
+      <div class="card red">
+        <div class="card-label">Sem Estoque</div>
+        <div class="card-value" id="total-sem">—</div>
+        <div class="card-sub">produtos zerados</div>
+      </div>
+      <div class="card green">
+        <div class="card-label">Valor Total</div>
+        <div class="card-value" style="font-size:30px;" id="total-valor">—</div>
+        <div class="card-sub">em estoque</div>
+      </div>
+    </div>
+
+    <div id="alert-baixo" class="alert-bar" style="display:none;">
+      ⚠️ <strong>Atenção:</strong>&nbsp;Há produtos com estoque abaixo do mínimo! Verifique a aba Estoque.
+    </div>
+
+    <div class="section">
+      <div class="section-header">
+        <div class="section-title">ÚLTIMAS MOVIMENTAÇÕES</div>
+      </div>
+      <div id="dash-movs" class="mov-list"></div>
+    </div>
+  </div>
+
+  <!-- ESTOQUE -->
+  <div id="page-estoque" class="page">
+    <div class="page-header">
+      <div class="page-title">ES<span>TOQUE</span></div>
+      <div class="header-actions">
+        <button class="btn btn-primary" onclick="openModal()">＋ Novo Produto</button>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-header">
+        <div class="filters">
+          <input class="filter-input" id="search-input" placeholder="🔍  Buscar produto..." oninput="renderTable()">
+          <select class="filter-select" id="cat-filter" onchange="renderTable()">
+            <option value="">Todas as categorias</option>
+            <option value="Bebidas Alcoólicas">🍺 Bebidas Alcoólicas</option>
+            <option value="Sem Álcool">🥤 Sem Álcool</option>
+            <option value="Destilados">🥃 Destilados</option>
+            <option value="Vinhos">🍷 Vinhos</option>
+            <option value="Energéticos">⚡ Energéticos</option>
+            <option value="Petiscos">🍟 Petiscos</option>
+            <option value="Conveniência">🛒 Conveniência</option>
+            <option value="Gelo">🧊 Gelo</option>
+          </select>
+          <select class="filter-select" id="status-filter" onchange="renderTable()">
+            <option value="">Todos os status</option>
+            <option value="ok">✅ OK</option>
+            <option value="low">⚠️ Baixo</option>
+            <option value="out">❌ Zerado</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Produto</th>
+              <th>Categoria</th>
+              <th>Qtd.</th>
+              <th>Mín.</th>
+              <th>Barra</th>
+              <th>Preço</th>
+              <th>Status</th>
+              <th>Ações</th>
+            </tr>
+          </thead>
+          <tbody id="table-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- MOVIMENTAÇÃO -->
+  <div id="page-movimentacao" class="page">
+    <div class="page-header">
+      <div class="page-title">MOVIMEN<span>TAÇÃO</span></div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;">
+      <div class="section">
+        <div class="section-title" style="margin-bottom:18px;">📥 ENTRADA</div>
+        <div class="form-group" style="margin-bottom:12px;">
+          <label class="form-label">Produto</label>
+          <select class="form-control" id="mov-prod-in">
+            <option value="">Selecione...</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin-bottom:12px;">
+          <label class="form-label">Quantidade</label>
+          <input type="number" class="form-control" id="mov-qty-in" placeholder="0" min="1">
+        </div>
+        <div class="form-group" style="margin-bottom:18px;">
+          <label class="form-label">Observação</label>
+          <input type="text" class="form-control" id="mov-obs-in" placeholder="Fornecedor, nota fiscal...">
+        </div>
+        <button class="btn btn-primary" style="width:100%;" onclick="registrarMov('entrada')">✅ Registrar Entrada</button>
+      </div>
+
+      <div class="section">
+        <div class="section-title" style="margin-bottom:18px;">📤 SAÍDA</div>
+        <div class="form-group" style="margin-bottom:12px;">
+          <label class="form-label">Produto</label>
+          <select class="form-control" id="mov-prod-out">
+            <option value="">Selecione...</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin-bottom:12px;">
+          <label class="form-label">Quantidade</label>
+          <input type="number" class="form-control" id="mov-qty-out" placeholder="0" min="1">
+        </div>
+        <div class="form-group" style="margin-bottom:18px;">
+          <label class="form-label">Observação</label>
+          <input type="text" class="form-control" id="mov-obs-out" placeholder="Venda, consumo interno...">
+        </div>
+        <button class="btn btn-secondary" style="width:100%;" onclick="registrarMov('saida')">❌ Registrar Saída</button>
+      </div>
+    </div>
+
+    <div class="section" style="margin-top:0;">
+      <div class="section-header">
+        <div class="section-title">HISTÓRICO DE MOVIMENTAÇÕES</div>
+        <button class="btn btn-secondary" onclick="limparMovs()" style="font-size:12px;padding:6px 14px;">🗑 Limpar</button>
+      </div>
+      <div id="mov-list" class="mov-list"></div>
+    </div>
+  </div>
+
+  <!-- RELATÓRIO -->
+  <div id="page-relatorio" class="page">
+    <div class="page-header">
+      <div class="page-title">RELATÓ<span>RIO</span></div>
+      <div class="header-actions">
+        <button class="btn btn-secondary" onclick="exportarCSV()">⬇ Exportar CSV</button>
+      </div>
+    </div>
+
+    <div class="cards-grid" style="grid-template-columns:repeat(3,1fr);">
+      <div class="card orange">
+        <div class="card-label">Entradas (mês)</div>
+        <div class="card-value" id="rel-entradas">—</div>
+        <div class="card-sub">unidades recebidas</div>
+      </div>
+      <div class="card red">
+        <div class="card-label">Saídas (mês)</div>
+        <div class="card-value" id="rel-saidas">—</div>
+        <div class="card-sub">unidades saídas</div>
+      </div>
+      <div class="card green">
+        <div class="card-label">Valor em Estoque</div>
+        <div class="card-value" style="font-size:28px;" id="rel-valor">—</div>
+        <div class="card-sub">total atual</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-header">
+        <div class="section-title">ESTOQUE POR CATEGORIA</div>
+      </div>
+      <div id="rel-categorias" class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Categoria</th>
+              <th>Qtd. Produtos</th>
+              <th>Qtd. Total</th>
+              <th>Valor Total</th>
+            </tr>
+          </thead>
+          <tbody id="rel-cat-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title" style="margin-bottom:16px;">PRODUTOS COM ESTOQUE BAIXO</div>
+      <div id="rel-baixo-body"></div>
+    </div>
+  </div>
+
+</main>
+
+<!-- MODAL PRODUTO -->
+<div class="modal-overlay" id="modal-overlay" onclick="fecharModal(event)">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-title" id="modal-title">NOVO <span>PRODUTO</span></div>
+    <div class="form-grid">
+      <input type="hidden" id="edit-id">
+      <div class="form-group full">
+        <label class="form-label">Nome do Produto *</label>
+        <input type="text" class="form-control" id="f-nome" placeholder="Ex: Heineken 600ml">
+      </div>
+      <div class="form-group">
+        <label class="form-label">SKU / Código</label>
+        <input type="text" class="form-control" id="f-sku" placeholder="HNK600">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Categoria *</label>
+        <select class="form-control" id="f-cat">
+          <option value="">Selecione...</option>
+          <option>Bebidas Alcoólicas</option>
+          <option>Sem Álcool</option>
+          <option>Destilados</option>
+          <option>Vinhos</option>
+          <option>Energéticos</option>
+          <option>Petiscos</option>
+          <option>Conveniência</option>
+          <option>Gelo</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Qtd. em Estoque *</label>
+        <input type="number" class="form-control" id="f-qty" placeholder="0" min="0">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Qtd. Mínima *</label>
+        <input type="number" class="form-control" id="f-min" placeholder="10" min="0">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Preço de Venda (R$)</label>
+        <input type="number" class="form-control" id="f-preco" placeholder="0,00" step="0.01" min="0">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Custo (R$)</label>
+        <input type="number" class="form-control" id="f-custo" placeholder="0,00" step="0.01" min="0">
+      </div>
+      <div class="form-group full">
+        <label class="form-label">Observações</label>
+        <input type="text" class="form-control" id="f-obs" placeholder="Fornecedor, validade...">
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="salvarProduto()">💾 Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ==================== STATE ====================
+let produtos = JSON.parse(localStorage.getItem('ds_produtos') || '[]');
+let movs = JSON.parse(localStorage.getItem('ds_movs') || '[]');
+let editingId = null;
+
+// Default products
+if (!produtos.length) {
+  produtos = [
+    { id: 1, nome: 'Heineken 600ml', sku: 'HNK600', cat: 'Bebidas Alcoólicas', qty: 48, min: 24, preco: 12.90, custo: 7.50, obs: '' },
+    { id: 2, nome: 'Skol Lata 350ml', sku: 'SKL350', cat: 'Bebidas Alcoólicas', qty: 5, min: 48, preco: 4.50, custo: 2.80, obs: '' },
+    { id: 3, nome: 'Coca-Cola 2L', sku: 'CCL2L', cat: 'Sem Álcool', qty: 30, min: 12, preco: 9.90, custo: 6.20, obs: '' },
+    { id: 4, nome: 'Jack Daniel\'s 1L', sku: 'JKD1L', cat: 'Destilados', qty: 0, min: 5, preco: 189.90, custo: 130.00, obs: 'Importado' },
+    { id: 5, nome: 'Red Bull 250ml', sku: 'RDB250', cat: 'Energéticos', qty: 36, min: 24, preco: 12.50, custo: 8.00, obs: '' },
+    { id: 6, nome: 'Vinho Miolo Reserva', sku: 'VNM750', cat: 'Vinhos', qty: 3, min: 6, preco: 49.90, custo: 32.00, obs: '' },
+    { id: 7, nome: 'Doritos 68g', sku: 'DRT68', cat: 'Petiscos', qty: 60, min: 30, preco: 8.90, custo: 5.50, obs: '' },
+    { id: 8, nome: 'Gelo 5kg', sku: 'GLO5KG', cat: 'Gelo', qty: 20, min: 10, preco: 6.00, custo: 3.00, obs: 'Pacote' },
+    { id: 9, nome: 'Água Mineral 500ml', sku: 'AGM500', cat: 'Sem Álcool', qty: 72, min: 36, preco: 3.00, custo: 1.50, obs: '' },
+    { id: 10, nome: 'Vodka Smirnoff 998ml', sku: 'SMR998', cat: 'Destilados', qty: 8, min: 12, preco: 54.90, custo: 38.00, obs: '' },
+  ];
+  save();
+}
+
+function save() {
+  localStorage.setItem('ds_produtos', JSON.stringify(produtos));
+  localStorage.setItem('ds_movs', JSON.stringify(movs));
+}
+
+// ==================== UTILS ====================
+function getStatus(p) {
+  if (p.qty === 0) return 'out';
+  if (p.qty <= p.min) return 'low';
+  return 'ok';
+}
+
+function statusBadge(p) {
+  const s = getStatus(p);
+  if (s === 'out') return '<span class="badge badge-out">❌ Zerado</span>';
+  if (s === 'low') return '<span class="badge badge-low">⚠️ Baixo</span>';
+  return '<span class="badge badge-ok">✅ OK</span>';
+}
+
+function fmtMoney(v) {
+  return 'R$ ' + parseFloat(v || 0).toFixed(2).replace('.', ',');
+}
+
+function toast(msg, type = '') {
+  const t = document.getElementById('toast');
+  t.innerHTML = msg;
+  t.className = 'toast show ' + type;
+  setTimeout(() => t.className = 'toast', 2500);
+}
+
+function genId() { return Date.now() + Math.random(); }
+
+// ==================== PAGES ====================
+function showPage(p) {
+  document.querySelectorAll('.page').forEach(e => e.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(e => e.classList.remove('active'));
+  document.getElementById('page-' + p).classList.add('active');
+  document.querySelectorAll('.nav-item')[['dashboard','estoque','movimentacao','relatorio'].indexOf(p)].classList.add('active');
+  if (p === 'dashboard') renderDash();
+  if (p === 'estoque') renderTable();
+  if (p === 'movimentacao') renderMovs();
+  if (p === 'relatorio') renderRelatorio();
+}
+
+// ==================== DASHBOARD ====================
+function renderDash() {
+  const baixo = produtos.filter(p => getStatus(p) === 'low').length;
+  const sem = produtos.filter(p => getStatus(p) === 'out').length;
+  const valor = produtos.reduce((a, p) => a + (p.qty * (p.preco || 0)), 0);
+
+  document.getElementById('total-produtos').textContent = produtos.length;
+  document.getElementById('total-baixo').textContent = baixo;
+  document.getElementById('total-sem').textContent = sem;
+  document.getElementById('total-valor').textContent = fmtMoney(valor);
+
+  document.getElementById('alert-baixo').style.display = (baixo + sem > 0) ? 'flex' : 'none';
+
+  const d = new Date();
+  document.getElementById('dash-date').textContent = d.toLocaleDateString('pt-BR', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+
+  const dash = document.getElementById('dash-movs');
+  if (!movs.length) {
+    dash.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:16px 0;text-align:center;">Nenhuma movimentação registrada ainda.</div>';
+    return;
+  }
+  dash.innerHTML = movs.slice(-8).reverse().map(m => movItemHTML(m)).join('');
+}
+
+// ==================== TABLE ====================
+function renderTable() {
+  const search = (document.getElementById('search-input').value || '').toLowerCase();
+  const cat = document.getElementById('cat-filter').value;
+  const status = document.getElementById('status-filter').value;
+
+  let filtered = produtos.filter(p => {
+    if (search && !p.nome.toLowerCase().includes(search) && !(p.sku||'').toLowerCase().includes(search)) return false;
+    if (cat && p.cat !== cat) return false;
+    if (status && getStatus(p) !== status) return false;
+    return true;
+  });
+
+  const pct = p => Math.min(100, p.min > 0 ? (p.qty / (p.min * 2)) * 100 : 100);
+  const barColor = p => { const s = getStatus(p); return s === 'out' ? 'var(--red)' : s === 'low' ? 'var(--yellow)' : 'var(--green)'; };
+
+  const tbody = document.getElementById('table-body');
+  if (!filtered.length) {
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:32px;">Nenhum produto encontrado.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = filtered.map(p => `
+    <tr onclick="editarProduto(${p.id})">
+      <td>
+        <div class="prod-name">${p.nome}</div>
+        ${p.sku ? `<div class="prod-sku">${p.sku}</div>` : ''}
+      </td>
+      <td><span class="badge badge-cat">${p.cat}</span></td>
+      <td><span class="qty-val">${p.qty}</span></td>
+      <td style="color:var(--muted);font-size:12px;">${p.min}</td>
+      <td>
+        <div class="stock-bar">
+          <div class="stock-fill" style="width:${pct(p)}%;background:${barColor(p)};"></div>
+        </div>
+      </td>
+      <td><span class="price-val">${fmtMoney(p.preco)}</span></td>
+      <td>${statusBadge(p)}</td>
+      <td onclick="event.stopPropagation()">
+        <div class="action-btns">
+          <button class="icon-btn" onclick="editarProduto(${p.id})" title="Editar">✏️</button>
+          <button class="icon-btn del" onclick="deletarProduto(${p.id})" title="Excluir">🗑</button>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+}
+
+// ==================== MODAL ====================
+function openModal() {
+  editingId = null;
+  document.getElementById('modal-title').innerHTML = 'NOVO <span>PRODUTO</span>';
+  ['f-nome','f-sku','f-obs'].forEach(id => document.getElementById(id).value = '');
+  ['f-qty','f-min','f-preco','f-custo'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('f-cat').value = '';
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+function editarProduto(id) {
+  const p = produtos.find(x => x.id === id);
+  if (!p) return;
+  editingId = id;
+  document.getElementById('modal-title').innerHTML = 'EDITAR <span>PRODUTO</span>';
+  document.getElementById('f-nome').value = p.nome;
+  document.getElementById('f-sku').value = p.sku || '';
+  document.getElementById('f-cat').value = p.cat;
+  document.getElementById('f-qty').value = p.qty;
+  document.getElementById('f-min').value = p.min;
+  document.getElementById('f-preco').value = p.preco;
+  document.getElementById('f-custo').value = p.custo;
+  document.getElementById('f-obs').value = p.obs || '';
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+function closeModal() {
+  document.getElementById('modal-overlay').classList.remove('open');
+}
+
+function fecharModal(e) {
+  if (e.target === document.getElementById('modal-overlay')) closeModal();
+}
+
+function salvarProduto() {
+  const nome = document.getElementById('f-nome').value.trim();
+  const cat = document.getElementById('f-cat').value;
+  const qty = parseInt(document.getElementById('f-qty').value);
+  const min = parseInt(document.getElementById('f-min').value);
+
+  if (!nome || !cat || isNaN(qty) || isNaN(min)) {
+    toast('⚠️ Preencha os campos obrigatórios!', 'err');
+    return;
+  }
+
+  if (editingId) {
+    const i = produtos.findIndex(x => x.id === editingId);
+    produtos[i] = { ...produtos[i], nome, sku: document.getElementById('f-sku').value, cat, qty, min,
+      preco: parseFloat(document.getElementById('f-preco').value) || 0,
+      custo: parseFloat(document.getElementById('f-custo').value) || 0,
+      obs: document.getElementById('f-obs').value };
+    toast('✅ Produto atualizado!');
+  } else {
+    produtos.push({ id: genId(), nome, sku: document.getElementById('f-sku').value, cat, qty, min,
+      preco: parseFloat(document.getElementById('f-preco').value) || 0,
+      custo: parseFloat(document.getElementById('f-custo').value) || 0,
+      obs: document.getElementById('f-obs').value });
+    toast('✅ Produto cadastrado!');
+  }
+
+  save();
+  closeModal();
+  renderTable();
+  renderDash();
+  atualizarSelects();
+}
+
+function deletarProduto(id) {
+  if (!confirm('Excluir este produto?')) return;
+  produtos = produtos.filter(p => p.id !== id);
+  save();
+  renderTable();
+  renderDash();
+  toast('🗑 Produto removido.');
+}
+
+// ==================== MOVIMENTAÇÃO ====================
+function atualizarSelects() {
+  const opts = '<option value="">Selecione...</option>' + produtos.map(p => `<option value="${p.id}">${p.nome}</option>`).join('');
+  document.getElementById('mov-prod-in').innerHTML = opts;
+  document.getElementById('mov-prod-out').innerHTML = opts;
+}
+
+function registrarMov(tipo) {
+  const selId = tipo === 'entrada' ? 'mov-prod-in' : 'mov-prod-out';
+  const qtyId = tipo === 'entrada' ? 'mov-qty-in' : 'mov-qty-out';
+  const obsId = tipo === 'entrada' ? 'mov-obs-in' : 'mov-obs-out';
+
+  const prodId = parseFloat(document.getElementById(selId).value);
+  const qty = parseInt(document.getElementById(qtyId).value);
+  const obs = document.getElementById(obsId).value;
+
+  if (!prodId) { toast('⚠️ Selecione um produto!', 'err'); return; }
+  if (!qty || qty <= 0) { toast('⚠️ Informe uma quantidade válida!', 'err'); return; }
+
+  const p = produtos.find(x => x.id === prodId);
+  if (!p) return;
+
+  if (tipo === 'saida' && qty > p.qty) {
+    toast('❌ Quantidade insuficiente em estoque!', 'err'); return;
+  }
+
+  p.qty += tipo === 'entrada' ? qty : -qty;
+
+  movs.push({ id: genId(), tipo, prodId, prodNome: p.nome, qty, obs, data: new Date().toISOString() });
+  save();
+
+  document.getElementById(qtyId).value = '';
+  document.getElementById(obsId).value = '';
+  document.getElementById(selId).value = '';
+
+  renderMovs();
+  toast(tipo === 'entrada' ? `✅ +${qty} unidades registradas!` : `📤 -${qty} unidades saídas!`);
+}
+
+function movItemHTML(m) {
+  const d = new Date(m.data);
+  const hora = d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  return `
+    <div class="mov-item">
+      <div class="mov-info">
+        <div class="mov-prod">${m.prodNome}</div>
+        <div class="mov-meta">${hora}${m.obs ? ' · ' + m.obs : ''}</div>
+      </div>
+      <span class="${m.tipo === 'entrada' ? 'mov-qty-pos' : 'mov-qty-neg'}">
+        ${m.tipo === 'entrada' ? '+' : '-'}${m.qty}
+      </span>
+    </div>
+  `;
+}
+
+function renderMovs() {
+  const list = document.getElementById('mov-list');
+  if (!movs.length) {
+    list.innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:20px;">Nenhuma movimentação registrada.</div>';
+    return;
+  }
+  list.innerHTML = [...movs].reverse().map(m => movItemHTML(m)).join('');
+  atualizarSelects();
+}
+
+function limparMovs() {
+  if (!confirm('Limpar todo o histórico de movimentações?')) return;
+  movs = [];
+  save();
+  renderMovs();
+  toast('🗑 Histórico limpo.');
+}
+
+// ==================== RELATÓRIO ====================
+function renderRelatorio() {
+  const entradas = movs.filter(m => m.tipo === 'entrada').reduce((a, m) => a + m.qty, 0);
+  const saidas = movs.filter(m => m.tipo === 'saida').reduce((a, m) => a + m.qty, 0);
+  const valor = produtos.reduce((a, p) => a + (p.qty * (p.preco || 0)), 0);
+
+  document.getElementById('rel-entradas').textContent = entradas;
+  document.getElementById('rel-saidas').textContent = saidas;
+  document.getElementById('rel-valor').textContent = fmtMoney(valor);
+
+  const cats = {};
+  produtos.forEach(p => {
+    if (!cats[p.cat]) cats[p.cat] = { count: 0, qty: 0, valor: 0 };
+    cats[p.cat].count++;
+    cats[p.cat].qty += p.qty;
+    cats[p.cat].valor += p.qty * (p.preco || 0);
+  });
+
+  document.getElementById('rel-cat-body').innerHTML = Object.entries(cats).map(([cat, d]) => `
+    <tr>
+      <td>${cat}</td>
+      <td>${d.count}</td>
+      <td class="qty-val">${d.qty}</td>
+      <td class="price-val">${fmtMoney(d.valor)}</td>
+    </tr>
+  `).join('');
+
+  const baixos = produtos.filter(p => getStatus(p) !== 'ok');
+  const baixoEl = document.getElementById('rel-baixo-body');
+  if (!baixos.length) {
+    baixoEl.innerHTML = '<div style="color:var(--green);font-size:13px;padding:8px;">✅ Todos os produtos estão com estoque adequado!</div>';
+    return;
+  }
+  baixoEl.innerHTML = baixos.map(p => `
+    <div class="mov-item">
+      <div class="mov-info">
+        <div class="mov-prod">${p.nome}</div>
+        <div class="mov-meta">${p.cat} · Mín: ${p.min}</div>
+      </div>
+      ${statusBadge(p)}
+    </div>
+  `).join('');
+}
+
+// ==================== EXPORT ====================
+function exportarCSV() {
+  const header = 'Nome,SKU,Categoria,Quantidade,Mínimo,Preço,Status\n';
+  const rows = produtos.map(p => `"${p.nome}","${p.sku||''}","${p.cat}",${p.qty},${p.min},${(p.preco||0).toFixed(2)},${getStatus(p)}`).join('\n');
+  const blob = new Blob([header + rows], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'estoque_drinkhouse.csv';
+  a.click();
+  toast('⬇ CSV exportado!');
+}
+
+// ==================== INIT ====================
+atualizarSelects();
+renderDash();
+</script>
+</body>
+</html>
